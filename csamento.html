@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Controle de Gastos - Casamento</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background-color: #1a1a1a; color: #fff; }
+    h1 { color: #ffcc00; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; background: #333; }
+    th, td { border: 1px solid #555; padding: 8px; text-align: left; }
+    th { background-color: #444; }
+    input[type="number"], input[type="text"] { width: 100%; padding: 4px; background-color: #444; color: #fff; border: 1px solid #666; }
+    .form, .resumo { margin-bottom: 20px; background: #222; padding: 10px; border-radius: 8px; box-shadow: 0 0 5px #444; }
+    .data-casamento { font-weight: bold; color: #bbb; }
+    button { cursor: pointer; padding: 5px 10px; background-color: #ffcc00; color: #1a1a1a; border: none; border-radius: 5px; }
+    .excluir-btn { background-color: transparent; color: red; border: none; font-size: 18px; cursor: pointer; }
+    select { padding: 5px; background-color: #444; color: #fff; border: 1px solid #666; }
+  </style>
+</head>
+<body>
+  <h1>Planejamento da Festa de Casamento</h1>
+  <p class="data-casamento">Data do casamento: 20/11/2025</p>
+  
+  <div class="form">
+    <h3>Nova Entrada</h3>
+    <label>Valor: <input type="number" id="entradaValor"></label><br>
+    <button onclick="registrarEntrada()">Registrar Entrada</button>
+  </div>
+
+  <div class="form">
+    <h3>Nova Saída</h3>
+    <label>Valor: <input type="number" id="saidaValor"></label><br>
+    <label>Destinado a (item/serviço): <input type="text" id="saidaDestino"></label><br>
+    <label>Observações: <input type="text" id="saidaObs"></label><br>
+    <button onclick="registrarSaida()">Registrar Saída</button>
+  </div>
+
+  <div class="form">
+    <h3>Adicionar Novo Item/Serviço</h3>
+    <label>Nome do Item/Serviço: <input type="text" id="novoItemNome"></label><br>
+    <label>Valor Estimado: <input type="number" id="novoItemValor"></label><br>
+    <button onclick="adicionarNovoItem()">Adicionar Item</button>
+  </div>
+
+  <div class="resumo">
+    <h3>Saldo Atual: R$ <span id="saldo">0.00</span></h3>
+    <h3>Saldo Estimado a Pagar: R$ <span id="faltaPagar">0.00</span></h3>
+    <h3>Diferença: R$ <span id="diferenca">0.00</span></h3>
+    <h3>Total Real Pago: R$ <span id="totalPago">0.00</span></h3>
+  </div>
+
+  <div class="form">
+    <label for="filtroStatus">Filtrar por Status:</label>
+    <select id="filtroStatus" onchange="atualizarTabela()">
+      <option value="todos">Todos</option>
+      <option value="pago">Pago</option>
+      <option value="pendente">Pendente</option>
+    </select>
+  </div>
+
+  <table id="tabelaServicos">
+    <thead>
+      <tr>
+        <th>Item/Serviço</th>
+        <th>Valor Estimado (R$)</th>
+        <th>Total Pago (R$)</th>
+        <th>Valor Restante (R$)</th>
+        <th>Status</th>
+        <th>Observações</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody id="corpoTabela"></tbody>
+  </table>
+
+  <script>
+    let saldo = 0; // Zerado conforme solicitado
+
+    const servicos = [
+      { nome: "Cartório", estimado: 500, pago: 0, obs: "" },
+      { nome: "DJ", estimado: 2970, pago: 2970, obs: "" },
+      { nome: "Fotógrafo", estimado: 1600, pago: 1600, obs: "" },
+      { nome: "Assessoria", estimado: 1000, pago: 0, obs: "" },
+      { nome: "Roupas noivo", estimado: 1000, pago: 0, obs: "" },
+      { nome: "Roupas noiva", estimado: 937, pago: 937, obs: "" },
+      { nome: "Aliança", estimado: 500, pago: 0, obs: "" },
+      { nome: "Buffet", estimado: 12500, pago: 0, obs: "" },
+      { nome: "Pétalas", estimado: 50, pago: 0, obs: "" },
+      { nome: "Difusores de lembrancinhas", estimado: 150, pago: 0, obs: "" },
+      { nome: "Quadro de boas-vindas", estimado: 100, pago: 0, obs: "" },
+      { nome: "Quadro para convidados escreverem", estimado: 50, pago: 0, obs: "" },
+      { nome: "Plaquinhas 'Lá vem a noiva' e 'Jesus, meu convidado de honra'", estimado: 50, pago: 0, obs: "" },
+      { nome: "Convites em papel para amigos e familiares", estimado: 250, pago: 0, obs: "" },
+      { nome: "Kit baladinha", estimado: 150, pago: 0, obs: "" },
+      { nome: "Papel verger e caneta (cone)", estimado: 38.5, pago: 0, obs: "" },
+      { nome: "Plásticos, sacolinhas e papel para lágrimas", estimado: 50, pago: 0, obs: "" },
+      { nome: "Buquê", estimado: 300, pago: 0, obs: "" }
+    ];
+
+    function atualizarTabela() {
+      const filtro = document.getElementById("filtroStatus").value;
+      const corpo = document.getElementById("corpoTabela");
+      const faltaSpan = document.getElementById("faltaPagar");
+      const diferencaSpan = document.getElementById("diferenca");
+      const totalPagoSpan = document.getElementById("totalPago");
+      corpo.innerHTML = "";
+      let totalFalta = 0;
+      let totalPago = 0;
+
+      servicos.forEach((s, index) => {
+        // Filtra os itens de acordo com o status selecionado
+        if (filtro === "todos" || (filtro === "pago" && s.pago >= s.estimado) || (filtro === "pendente" && s.pago < s.estimado)) {
+          const restante = s.estimado - s.pago;
+          const status = s.pago >= s.estimado ? "Pago" : "Pendente";
+          totalFalta += restante > 0 ? restante : 0;
+          totalPago += s.pago;
+
+          corpo.innerHTML += ` 
+            <tr>
+              <td>${s.nome}</td>
+              <td>
+                <input type="number" value="${s.estimado}" onchange="atualizarValorEstimado(${index}, this.value)">
+              </td>
+              <td>
+                <input type="number" value="${s.pago}" onchange="atualizarTotalPago(${index}, this.value)">
+              </td>
+              <td>${restante.toFixed(2)}</td>
+              <td>${status}</td>
+              <td>
+                <input type="text" value="${s.obs}" onchange="atualizarObservacao(${index}, this.value)">
+              </td>
+              <td><button class="excluir-btn" onclick="excluirItem(${index})">X</button></td>
+            </tr>`;
+        }
+      });
+
+      document.getElementById("saldo").innerText = saldo.toFixed(2);
+      faltaSpan.innerText = totalFalta.toFixed(2);
+      diferencaSpan.innerText = (totalFalta - saldo).toFixed(2); // Diferença
+      totalPagoSpan.innerText = totalPago.toFixed(2);
+    }
+
+    function registrarEntrada() {
+      const valor = parseFloat(document.getElementById("entradaValor").value);
+      if (!isNaN(valor)) {
+        saldo += valor;
+        atualizarTabela();
+        document.getElementById("entradaValor").value = "";
+      }
+    }
+
+    function registrarSaida() {
+      const valor = parseFloat(document.getElementById("saidaValor").value);
+      const destino = document.getElementById("saidaDestino").value.trim();
+      const obs = document.getElementById("saidaObs").value.trim();
+
+      if (!isNaN(valor) && destino !== "") {
+        const item = servicos.find(s => s.nome.toLowerCase() === destino.toLowerCase());
+        if (item) {
+          item.pago += valor;
+          item.obs = obs;
+          saldo -= valor;
+          atualizarTabela();
+        } else {
+          alert("Item/serviço não encontrado.");
+        }
+        document.getElementById("saidaValor").value = "";
+        document.getElementById("saidaDestino").value = "";
+        document.getElementById("saidaObs").value = "";
+      }
+    }
+
+    function atualizarValorEstimado(index, novoValor) {
+      if (!isNaN(novoValor)) {
+        servicos[index].estimado = parseFloat(novoValor);
+        atualizarTabela();
+      }
+    }
+
+    function atualizarTotalPago(index, novoValor) {
+      if (!isNaN(novoValor)) {
+        servicos[index].pago = parseFloat(novoValor);
+        atualizarTabela();
+      }
+    }
+
+    function atualizarObservacao(index, novaObs) {
+      servicos[index].obs = novaObs;
+    }
+
+    function excluirItem(index) {
+      if (confirm("Tem certeza que deseja excluir este item?")) {
+        servicos.splice(index, 1);
+        atualizarTabela();
+      }
+    }
+
+    function adicionarNovoItem() {
+      const nome = document.getElementById("novoItemNome").value.trim();
+      const valor = parseFloat(document.getElementById("novoItemValor").value);
+      if (nome !== "" && !isNaN(valor)) {
+        servicos.push({ nome, estimado: valor, pago: 0, obs: "" });
+        atualizarTabela();
+        document.getElementById("novoItemNome").value = "";
+        document.getElementById("novoItemValor").value = "";
+      } else {
+        alert("Por favor, preencha todos os campos corretamente.");
+      }
+    }
+
+    atualizarTabela();
+  </script>
+</body>
+</html>
